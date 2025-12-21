@@ -11,39 +11,39 @@ env:
   ENABLE_SECURITY_SCAN: 'true'
 
 jobs:
-  # Setup job - checkout repo and install dependencies
-  setup:
-    name: Setup PR Branch
-    runs-on: ubuntu-latest
-    outputs:
-      cache-hit: ${{ steps.cache.outputs.cache-hit }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+  # # Setup job - checkout repo and install dependencies
+  # setup:
+  #   name: Setup PR Branch
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     cache-hit: ${{ steps.cache.outputs.cache-hit }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+  #     - name: Install pnpm
+  #       uses: pnpm/action-setup@v4
+  #       with:
+  #         version: 10
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'pnpm'
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #         cache: 'pnpm'
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        id: cache
+  #     - name: Install dependencies
+  #       run: pnpm install --frozen-lockfile
+  #       id: cache
 
   # Test jobs
   test-lint:
     name: Linting
     runs-on: ubuntu-latest
-    needs: setup
+    #needs: setup
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
   test-types:
     name: Type Checks
     runs-on: ubuntu-latest
-    needs: setup
+    #needs: setup
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -101,7 +101,7 @@ jobs:
   test-format:
     name: Format Checks
     runs-on: ubuntu-latest
-    needs: setup
+    #needs: setup
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -130,7 +130,7 @@ jobs:
   test-knip:
     name: Unused Dependencies
     runs-on: ubuntu-latest
-    needs: setup
+    #needs: setup
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -159,7 +159,7 @@ jobs:
   test-coverage:
     name: Unit Tests & Coverage Analysis
     runs-on: ubuntu-latest
-    needs: setup
+    #needs: setup
     outputs:
       coverage: ${{ steps.coverage.outputs.coverage }}
     steps:
@@ -214,7 +214,7 @@ jobs:
   verify-build:
     name: Verify Build
     runs-on: ubuntu-latest
-    needs: setup
+    #needs: setup
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -256,7 +256,7 @@ jobs:
   security-scan:
     name: Security & Dependency Analysis
     runs-on: ubuntu-latest
-    needs: setup
+    #needs: setup
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -363,7 +363,7 @@ jobs:
                 });
 
                 const logText = logs.data;
-                const lines = logText.split('\n');
+                const lines = logText.split('\\n');
 
                 // Find error lines (look for common error patterns)
                 const errorPatterns = [
@@ -390,7 +390,7 @@ jobs:
                   // Continue capturing for relevant error context
                   else if (capturingErrors) {
                     // Stop if we hit a new section header or end
-                    if (line.match(/^##\[group\]/) || line.match(/^##\[endgroup\]/)) {
+                    if (line.match(/^##\\[group\\]/) || line.match(/^##\\[endgroup\\]/)) {
                       if (errorLines.length > 0 && errorLines[errorLines.length - 1] !== '...') {
                         errorLines.push('...');
                       }
@@ -406,7 +406,7 @@ jobs:
                   }
                 }
 
-                return errorLines.length > 0 ? errorLines.join('\n').trim() : null;
+                return errorLines.length > 0 ? errorLines.join('\\n').trim() : null;
               } catch (error) {
                 console.log(`Failed to get logs for job ${jobName}:`, error.message);
                 return 'Error retrieving job logs';
@@ -423,18 +423,18 @@ jobs:
               if (!isSuccess) {
                 if (key === 'coverage') {
                   const coverageOutput = '${{ needs.test-coverage.outputs.coverage }}';
-                  details = coverageOutput ? `\n\n**Current Coverage:** ${coverageOutput}% (Required: ${{ env.ENABLE_COVERAGE_THRESHOLD }}%)` : '';
+                  details = coverageOutput ? '\\n\\n**Current Coverage:** ${coverageOutput}% (Required: ${{ env.ENABLE_COVERAGE_THRESHOLD }}%)' : '';
                 }
 
                 const errorDetails = await getJobErrorDetails(jobName);
                 if (errorDetails) {
-                  details += '\n\n<details>\n<summary>🔍 Error Details</summary>\n\n```bash\n' + errorDetails.substring(0, 1500) + (errorDetails.length > 1500 ? '\n...' : '') + '\n```\n</details>';
+                  details += '\\n\\n<details>\\n<summary>🔍 Error Details</summary>\\n\\n```bash\\n' + errorDetails.substring(0, 1500) + (errorDetails.length > 1500 ? '\\n...' : '') + '\\n```\\n</details>';
                 }
 
                 if (jobDetails[jobName]) {
                   const job = jobDetails[jobName];
                   const duration = job.completed_at ? Math.round((new Date(job.completed_at) - new Date(job.started_at)) / 1000) : 'N/A';
-                  details += `\n\n**Duration:** ${duration}s | **Run ID:** #${job.run_number}`;
+                  details += `\\n\\n**Duration:** ${duration}s | **Run ID:** #${job.run_number}`;
                 }
               } else {
                 if (jobDetails[jobName]) {
@@ -444,7 +444,7 @@ jobs:
                 }
               }
 
-              return `### ${name} ${icon}\n${getDescription(key)}${details}`;
+              return `### ${name} ${icon}\\n${getDescription(key)}${details}`;
             };
 
             function getDescription(key) {
@@ -478,7 +478,7 @@ jobs:
             const comment = `
             ## 🤖 PR Checks Summary
 
-            ${commentSections.join('\n\n')}
+            ${commentSections.join('\\n\\n')}
 
             ## Overall Status: ${overallStatus}
 
