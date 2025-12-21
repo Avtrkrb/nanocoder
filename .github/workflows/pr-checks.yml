@@ -11,15 +11,12 @@ env:
   ENABLE_SECURITY_SCAN: 'true'
 
 jobs:
-  # Matrix testing across multiple environments
-  test-matrix:
-    name: Test on ${{ matrix.os }} (Node ${{ matrix.node-version }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        node-version: [22]
+  # Setup job - checkout repo and install dependencies
+  setup:
+    name: Setup Repository
+    runs-on: ubuntu-latest
+    outputs:
+      cache-hit: ${{ steps.cache.outputs.cache-hit }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,10 +29,37 @@ jobs:
         with:
           version: 10
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        id: cache
+
+  # Test jobs
+  test-lint:
+    name: Test: Linting
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -43,20 +67,176 @@ jobs:
 
       - name: Run linting
         run: pnpm run test:lint
-        id: lint
+
+  test-types:
+    name: Test: TypeScript Types
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Run TypeScript type checking
         run: pnpm run test:types
 
+  test-format:
+    name: Test: Formatting
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Run format check
         run: pnpm run test:format
+
+  test-knip:
+    name: Test: Unused Dependencies
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Run dependency check (knip)
         run: pnpm run test:knip
 
+  test-coverage:
+    name: Test: Unit Tests & Coverage
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Run unit tests with coverage
         run: pnpm run test:ava:coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22'
+
+      - name: Generate coverage summary
+        run: |
+          pnpm exec c8 report --reporter=json-summary
+
+      - name: Extract coverage percentage
+        id: coverage
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            COVERAGE=$(cat coverage/coverage-summary.json | jq -r '.total.lines.pct')
+            echo "coverage=${COVERAGE}" >> $GITHUB_OUTPUT
+            echo "Current coverage: ${COVERAGE}%"
+
+            # Check coverage threshold
+            if (( $(echo "${COVERAGE} < ${ENABLE_COVERAGE_THRESHOLD}" | bc -l) )); then
+              echo "❌ Coverage ${COVERAGE}% is below threshold ${ENABLE_COVERAGE_THRESHOLD}%"
+              exit 1
+            else
+              echo "✅ Coverage ${COVERAGE}% meets threshold ${ENABLE_COVERAGE_THRESHOLD}%"
+            fi
+          else
+            echo "❌ No coverage report found"
+            exit 1
+          fi
+
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'pull_request'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  verify-build:
+    name: Verify: Build
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build project
         run: pnpm run build
@@ -67,7 +247,7 @@ jobs:
             test -f dist/cli.js
             echo "✓ CLI build verified"
           fi
-          if [ "$RUNNER_OS" == "Linux" ] && [ "${{ matrix.node-version }}" == "22" ]; then
+          if [ "$RUNNER_OS" == "Linux" ]; then
             test -f assets/nanocoder-vscode.vsix
             echo "✓ VS Code extension verified"
           fi
@@ -141,6 +321,10 @@ jobs:
       - name: Run tests with coverage
         run: pnpm run test:ava:coverage
 
+      - name: Generate coverage summary
+        run: |
+          pnpm exec c8 report --reporter=json-summary
+
       - name: Extract coverage percentage
         id: coverage
         run: |
@@ -174,7 +358,7 @@ jobs:
   pr-comment:
     name: PR Results Summary
     runs-on: ubuntu-latest
-    needs: [test-matrix, security-scan, coverage-analysis]
+    needs: [test-lint, test-types, test-format, test-knip, test-coverage, verify-build, security-scan]
     if: always() && github.event_name == 'pull_request'
     steps:
       - name: Comment on PR
@@ -185,28 +369,58 @@ jobs:
             const { number } = context.issue;
 
             // Check job results
-            const testResult = '${{ needs.test-matrix.result }}';
+            const lintResult = '${{ needs.test-lint.result }}';
+            const typesResult = '${{ needs.test-types.result }}';
+            const formatResult = '${{ needs.test-format.result }}';
+            const knipResult = '${{ needs.test-knip.result }}';
+            const coverageResult = '${{ needs.test-coverage.result }}';
+            const buildResult = '${{ needs.verify-build.result }}';
             const securityResult = '${{ needs.security-scan.result }}';
-            const coverageResult = '${{ needs.coverage-analysis.result }}';
 
             // Build status message
             let status = '✅ All checks passed!';
-            if (testResult !== 'success' || securityResult !== 'success' || coverageResult !== 'success') {
+            if (lintResult !== 'success' || typesResult !== 'success' || formatResult !== 'success' ||
+                knipResult !== 'success' || coverageResult !== 'success' || buildResult !== 'success' || securityResult !== 'success') {
               status = '❌ Some checks failed';
+            }
+
+            // Get coverage percentage if available
+            let coverageText = 'Coverage analysis';
+            if (coverageResult === 'success') {
+              try {
+                const coverageOutput = '${{ needs.test-coverage.outputs.coverage }}';
+                if (coverageOutput) {
+                  coverageText = `Coverage: ${coverageOutput}%`;
+                }
+              } catch (e) {
+                // Fallback to generic text
+              }
             }
 
             // Create comment body
             const comment = `
             ## 🤖 PR Checks Summary
 
-            ### Test Matrix: ${testResult === 'success' ? '✅ Passed' : '❌ Failed'}
-            Tests on Ubuntu with Node.js 22
+            ### Test: Linting ${lintResult === 'success' ? '✅' : '❌'}
+            Code linting with Biome
 
-            ### Security Scan: ${securityResult === 'success' ? '✅ Passed' : '❌ Failed'}
+            ### Test: TypeScript ${typesResult === 'success' ? '✅' : '❌'}
+            TypeScript type checking
+
+            ### Test: Formatting ${formatResult === 'success' ? '✅' : '❌'}
+            Code formatting check
+
+            ### Test: Dependencies ${knipResult === 'success' ? '✅' : '❌'}
+            Unused dependency check (knip)
+
+            ### Test: Coverage ${coverageResult === 'success' ? '✅' : '❌'}
+            ${coverageText} (threshold: ${{ env.ENABLE_COVERAGE_THRESHOLD }}%)
+
+            ### Verify: Build ${buildResult === 'success' ? '✅' : '❌'}
+            Build and artifact verification
+
+            ### Security Scan: ${securityResult === 'success' ? '✅' : '❌'}
             No high-severity vulnerabilities detected
-
-            ### Coverage Analysis: ${coverageResult === 'success' ? '✅ Passed' : '❌ Failed'}
-            Coverage threshold (${{ env.ENABLE_COVERAGE_THRESHOLD }}%) met
 
             **Overall Status: ${status}**
 
