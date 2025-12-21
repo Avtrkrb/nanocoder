@@ -64,6 +64,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        id: cache
 
       - name: Run linting
         run: pnpm run test:lint
@@ -92,6 +93,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        id: cache
 
       - name: Run TypeScript type checking
         run: pnpm run test:types
@@ -120,6 +122,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        id: cache
 
       - name: Run format check
         run: pnpm run test:format
@@ -148,6 +151,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        id: cache
 
       - name: Run dependency check (knip)
         run: pnpm run test:knip
@@ -156,6 +160,8 @@ jobs:
     name: Unit Tests & Coverage Analysis
     runs-on: ubuntu-latest
     needs: setup
+    outputs:
+      coverage: ${{ steps.coverage.outputs.coverage }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -176,6 +182,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        id: cache
 
       - name: Run unit tests with coverage
         run: pnpm run test:ava:coverage
@@ -228,6 +235,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        id: cache
 
       - name: Build project
         run: pnpm run build
@@ -269,6 +277,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        id: cache
 
       - name: Run security audit
         run: pnpm audit --audit-level=high
@@ -303,54 +312,183 @@ jobs:
             const buildResult = '${{ needs.verify-build.result }}';
             const securityResult = '${{ needs.security-scan.result }}';
 
-            // Build status message
-            let status = '✅ All checks passed!';
-            if (lintResult !== 'success' || typesResult !== 'success' || formatResult !== 'success' ||
-                knipResult !== 'success' || coverageResult !== 'success' || buildResult !== 'success' || securityResult !== 'success') {
-              status = '❌ Some checks failed';
+            // Job mapping for API calls
+            const jobMap = {
+              'lint': { result: lintResult, name: 'Linting', jobName: 'test-lint' },
+              'types': { result: typesResult, name: 'Type Checks', jobName: 'test-types' },
+              'format': { result: formatResult, name: 'Format Checks', jobName: 'test-format' },
+              'knip': { result: knipResult, name: 'Unused Dependencies', jobName: 'test-knip' },
+              'coverage': { result: coverageResult, name: 'Coverage Analysis', jobName: 'test-coverage' },
+              'build': { result: buildResult, name: 'Build Verification', jobName: 'verify-build' },
+              'security': { result: securityResult, name: 'Security Analysis', jobName: 'security-scan' }
+            };
+
+            // Get workflow run information
+            const { data: workflowRuns } = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              head_sha: context.sha,
+              event: 'pull_request'
+            });
+
+            const workflowRun = workflowRuns.workflow_runs.find(run =>
+              run.head_sha === context.sha && run.event === 'pull_request'
+            );
+
+            let jobDetails = {};
+            if (workflowRun) {
+              const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+                owner,
+                repo,
+                run_id: workflowRun.id
+              });
+
+              jobDetails = jobs.jobs.reduce((acc, job) => {
+                acc[job.name] = job;
+                return acc;
+              }, {});
             }
 
-            // Get coverage percentage if available
-            let coverageText = 'Coverage analysis';
-            if (coverageResult === 'success') {
-              try {
-                const coverageOutput = '${{ needs.test-coverage.outputs.coverage }}';
-                if (coverageOutput) {
-                  coverageText = `Coverage: ${coverageOutput}%`;
-                }
-              } catch (e) {
-                // Fallback to generic text
+            // Function to extract error details from job logs
+            async function getJobErrorDetails(jobName) {
+              if (!workflowRun || !jobDetails[jobName] || jobDetails[jobName].conclusion === 'success') {
+                return null;
               }
+
+              try {
+                const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
+                  owner,
+                  repo,
+                  job_id: jobDetails[jobName].id
+                });
+
+                const logText = logs.data;
+                const lines = logText.split('\n');
+
+                // Find error lines (look for common error patterns)
+                const errorPatterns = [
+                  /error/i,
+                  /failed/i,
+                  /❌/,
+                  /Error:/i,
+                  /FAIL:/i,
+                  /exit code 1/i,
+                  /ELIFECYCLE.*Command failed/i
+                ];
+
+                let errorLines = [];
+                let capturingErrors = false;
+
+                for (let i = 0; i < lines.length; i++) {
+                  const line = lines[i];
+
+                  // Start capturing errors when we encounter a failure pattern
+                  if (errorPatterns.some(pattern => pattern.test(line)) || line.includes('##[error]')) {
+                    capturingErrors = true;
+                    errorLines.push(line);
+                  }
+                  // Continue capturing for relevant error context
+                  else if (capturingErrors) {
+                    // Stop if we hit a new section header or end
+                    if (line.match(/^##\[group\]/) || line.match(/^##\[endgroup\]/)) {
+                      if (errorLines.length > 0 && errorLines[errorLines.length - 1] !== '...') {
+                        errorLines.push('...');
+                      }
+                    }
+                    // Stop capturing after too many lines to avoid huge comments
+                    else if (errorLines.length > 15) {
+                      errorLines.push('...');
+                      break;
+                    }
+                    else {
+                      errorLines.push(line);
+                    }
+                  }
+                }
+
+                return errorLines.length > 0 ? errorLines.join('\n').trim() : null;
+              } catch (error) {
+                console.log(`Failed to get logs for job ${jobName}:`, error.message);
+                return 'Error retrieving job logs';
+              }
+            }
+
+            // Build detailed status sections
+            const buildStatusSection = async (key, jobInfo) => {
+              const { result, name, jobName } = jobInfo;
+              const icon = result === 'success' ? '✅' : '❌';
+              const isSuccess = result === 'success';
+
+              let details = '';
+              if (!isSuccess) {
+                if (key === 'coverage') {
+                  const coverageOutput = '${{ needs.test-coverage.outputs.coverage }}';
+                  details = coverageOutput ? `\n\n**Current Coverage:** ${coverageOutput}% (Required: ${{ env.ENABLE_COVERAGE_THRESHOLD }}%)` : '';
+                }
+
+                const errorDetails = await getJobErrorDetails(jobName);
+                if (errorDetails) {
+                  details += '\n\n<details>\n<summary>🔍 Error Details</summary>\n\n```bash\n' + errorDetails.substring(0, 1500) + (errorDetails.length > 1500 ? '\n...' : '') + '\n```\n</details>';
+                }
+
+                if (jobDetails[jobName]) {
+                  const job = jobDetails[jobName];
+                  const duration = job.completed_at ? Math.round((new Date(job.completed_at) - new Date(job.started_at)) / 1000) : 'N/A';
+                  details += `\n\n**Duration:** ${duration}s | **Run ID:** #${job.run_number}`;
+                }
+              } else {
+                if (jobDetails[jobName]) {
+                  const job = jobDetails[jobName];
+                  const duration = job.completed_at ? Math.round((new Date(job.completed_at) - new Date(job.started_at)) / 1000) : 'N/A';
+                  details = ` (${duration}s)`;
+                }
+              }
+
+              return `### ${name} ${icon}\n${getDescription(key)}${details}`;
+            };
+
+            function getDescription(key) {
+              const descriptions = {
+                'lint': 'Code linting with Biome',
+                'types': 'TypeScript type checking',
+                'format': 'Code formatting with Biome',
+                'knip': 'Unused dependency and file detection',
+                'coverage': 'Unit test coverage analysis',
+                'build': 'Build artifact verification',
+                'security': 'Security audit and dependency analysis'
+              };
+              return descriptions[key] || 'Automated check';
+            }
+
+            // Build overall status
+            let overallStatus = '✅ All checks passed!';
+            let failedJobs = Object.entries(jobMap).filter(([key, job]) => job.result !== 'success');
+
+            if (failedJobs.length > 0) {
+              overallStatus = `❌ ${failedJobs.length} check${failedJobs.length > 1 ? 's' : ''} failed`;
+            }
+
+            // Generate comment sections
+            let commentSections = [];
+            for (const [key, jobInfo] of Object.entries(jobMap)) {
+              commentSections.push(await buildStatusSection(key, jobInfo));
             }
 
             // Create comment body
             const comment = `
             ## 🤖 PR Checks Summary
 
-            ### Test: Linting ${lintResult === 'success' ? '✅' : '❌'}
-            Code linting with Biome
+            ${commentSections.join('\n\n')}
 
-            ### Test: TypeScript ${typesResult === 'success' ? '✅' : '❌'}
-            TypeScript type checking
-
-            ### Test: Formatting ${formatResult === 'success' ? '✅' : '❌'}
-            Code formatting check
-
-            ### Test: Dependencies ${knipResult === 'success' ? '✅' : '❌'}
-            Unused dependency check (knip)
-
-            ### Test: Coverage ${coverageResult === 'success' ? '✅' : '❌'}
-            ${coverageText} (threshold: ${{ env.ENABLE_COVERAGE_THRESHOLD }}%)
-
-            ### Verify: Build ${buildResult === 'success' ? '✅' : '❌'}
-            Build and artifact verification
-
-            ### Security Scan: ${securityResult === 'success' ? '✅' : '❌'}
-            No high-severity vulnerabilities detected
-
-            **Overall Status: ${status}**
+            ## Overall Status: ${overallStatus}
 
             ---
+            **📊 Quick Stats:**
+            • **Total Checks:** ${Object.keys(jobMap).length}
+            • **Passed:** ${Object.values(jobMap).filter(job => job.result === 'success').length}
+            • **Failed:** ${failedJobs.length}
+            • **Workflow Run:** [#${workflowRun?.run_number || 'N/A'}](${workflowRun?.html_url || '#'})
+
             *This comment was automatically generated by PR checks workflow*
             `;
 
