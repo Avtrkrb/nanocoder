@@ -8,7 +8,8 @@
 		"source/vscode/**/*.ts",
 		"source/hooks/useVSCodeServer.tsx",
 		"plugins/**/*",
-		"scripts/fetch-models.js"
+		"scripts/fetch-models.js",
+		".github/**"
 	],
 	"ignoreExportsUsedInFile": {
 		"interface": true,
