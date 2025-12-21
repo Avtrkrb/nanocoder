@@ -11,11 +11,25 @@ Brief description of what this PR does
 
 ## Testing
 
-### Automated Tests
+### Automated Checks
+
+This PR will automatically be checked against:
+- **Linting**: Code style and formatting with Biome
+- **Type checking**: TypeScript compilation with no errors
+- **Unit tests**: Test suite execution with coverage
+- **Build verification**: Project builds successfully across platforms
+- **Security audit**: No high-severity vulnerabilities (npm audit)
+- **Dependency analysis**: No unused dependencies (knip)
+
+### Requirements for Merge
 
 - [ ] New features include passing tests in `.spec.ts/tsx` files
 - [ ] All existing tests pass (`pnpm test:all` completes successfully)
 - [ ] Tests cover both success and error scenarios
+- [ ] Code coverage meets or exceeds 80% threshold
+- [ ] No high-severity security vulnerabilities
+- [ ] No unused dependencies detected
+- [ ] Build succeeds on Ubuntu, Windows, and macOS with Node.js 18, 20, 22
 
 ### Manual Testing
 

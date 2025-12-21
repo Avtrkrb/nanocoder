@@ -1,5 +1,8 @@
 # Nanocoder
 
+## 📊 Status
+![coverage](https://github.com/Nano-Collective/nanocoder/raw/main/badges/coverage.svg) ![version](https://github.com/Nano-Collective/nanocoder/raw/main/badges/version.svg) ![build](https://github.com/Nano-Collective/nanocoder/raw/main/badges/build.svg)
+
 A local-first CLI coding agent that brings the power of agentic coding tools like Claude Code and Gemini CLI to local models or controlled APIs like OpenRouter. Built with privacy and control in mind, Nanocoder supports multiple AI providers with tool support for file operations and command execution.
 
 ![Example](./.github/assets/example.gif)
