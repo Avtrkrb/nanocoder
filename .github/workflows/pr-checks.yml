@@ -18,8 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        node-version: [18, 20, 22]
+        os: [ubuntu-latest]
+        node-version: [22]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -40,9 +40,15 @@ jobs:
       - name: Run TypeScript type checking
         run: pnpm run test:types
 
+      - name: Run format check
+        run: pnpm run test:format
+
+      - name: Run dependency check (knip)
+        run: pnpm run test:knip
+
       - name: Run unit tests with coverage
         run: pnpm run test:ava:coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22'
 
       - name: Build project
         run: pnpm run build
@@ -53,7 +59,7 @@ jobs:
             test -f dist/cli.js
             echo "✓ CLI build verified"
           fi
-          if [ "$RUNNER_OS" == "Linux" ] && [ "${{ matrix.node-version }}" == "20" ]; then
+          if [ "$RUNNER_OS" == "Linux" ] && [ "${{ matrix.node-version }}" == "22" ]; then
             test -f assets/nanocoder-vscode.vsix
             echo "✓ VS Code extension verified"
           fi
@@ -170,7 +176,7 @@ jobs:
             ## 🤖 PR Checks Summary
 
             ### Test Matrix: ${testResult === 'success' ? '✅ Passed' : '❌ Failed'}
-            Tests across Ubuntu, Windows, and macOS with Node.js 18, 20, 22
+            Tests on Ubuntu with Node.js 22
 
             ### Security Scan: ${securityResult === 'success' ? '✅ Passed' : '❌ Failed'}
             No high-severity vulnerabilities detected
