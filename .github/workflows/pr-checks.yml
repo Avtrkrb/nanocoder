@@ -251,11 +251,90 @@ jobs:
           pnpm outdated || echo "Some dependencies are outdated"
         continue-on-error: true
 
+  # Security analysis with Semgrep
+  semgrep-scan:
+    name: Semgrep Security Scan
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Run Semgrep
+        run: semgrep scan --config auto --error
+
+  # CodeQL Analysis
+  codeql-scan:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript']  # CodeQL analyzes both JavaScript and TypeScript together
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      # Initializes the CodeQL tools for scanning
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # If you wish to specify custom queries, you can do so here or in a config file
+          # By default, queries listed here will override any specified in a config file
+          # Prefix the list here with "+" to use these queries and those in the config file
+          # queries: security-extended,security-and-quality
+
+      # Autobuild attempts to build any compiled languages (C/C++, C#, Go, or Java)
+      # If this step fails, then you should remove it and run the build manually
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      # Perform CodeQL Analysis
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # OWASP ZAP vulnerability analysis
+  owasp-zap-scan:
+    name: OWASP ZAP Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      # For a TypeScript/Node.js project, we'll focus on dependency scanning
+      # rather than web application scanning since there's no running web server
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check-GitHub-Action@main
+        with:
+          project: 'nanocoder'
+          scanPath: './'
+          format: 'JSON'
+          out: 'reports'
+          args: >
+            --enableRetired
+            --enableExperimental
+            --failOnCVSS 7
+
   # PR Comment with results
   pr-comment:
     name: PR Results Summary
     runs-on: ubuntu-latest
-    needs: [test-lint, test-types, test-format, test-knip, test-coverage, verify-build, security-scan]
+    needs: [test-lint, test-types, test-format, test-knip, test-coverage, verify-build, security-scan, semgrep-scan, codeql-scan, owasp-zap-scan]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
@@ -275,12 +354,16 @@ jobs:
             const coverageResult = '${{ needs.test-coverage.result }}';
             const buildResult = '${{ needs.verify-build.result }}';
             const securityResult = '${{ needs.security-scan.result }}';
+            const semgrepResult = '${{ needs.semgrep-scan.result }}';
+            const codeqlResult = '${{ needs.codeql-scan.result }}';
+            const zapResult = '${{ needs.owasp-zap-scan.result }}';
 
             // Build status message
             let status = '✅ All checks passed!';
             let hasFailures = false;
             if (lintResult !== 'success' || typesResult !== 'success' || formatResult !== 'success' ||
-                knipResult !== 'success' || coverageResult !== 'success' || buildResult !== 'success' || securityResult !== 'success') {
+                knipResult !== 'success' || coverageResult !== 'success' || buildResult !== 'success' ||
+                securityResult !== 'success' || semgrepResult !== 'success' || codeqlResult !== 'success' || zapResult !== 'success') {
               status = '❌ Some checks failed';
               hasFailures = true;
             }
@@ -311,6 +394,9 @@ jobs:
             | Coverage | ${coverageResult === 'success' ? '✅' : '❌'} | ${coverageText}. Coverage threshold (${{ env.ENABLE_COVERAGE_THRESHOLD }}%) met |
             | Build | ${buildResult === 'success' ? '✅' : '❌'} | Build and artifact verification |
             | Security | ${securityResult === 'success' ? '✅' : '❌'} | No high-severity vulnerabilities detected |
+            | Semgrep | ${semgrepResult === 'success' ? '✅' : '❌'} | Static analysis security scanning |
+            | CodeQL | ${codeqlResult === 'success' ? '✅' : '❌'} | Advanced code analysis for vulnerabilities |
+            | OWASP Dependency Check | ${zapResult === 'success' ? '✅' : '❌'} | Dependency vulnerability scan |
 
             **Overall Status: ${status}**
 
