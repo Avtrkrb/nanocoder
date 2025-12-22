@@ -309,7 +309,7 @@ jobs:
   pr-comment:
     name: PR Results Summary
     runs-on: ubuntu-latest
-    needs: [test-lint, test-types, test-format, test-knip, test-coverage, verify-build, security-scan, semgrep-scan, codeql-scan, owasp-zap-scan]
+    needs: [test-lint, test-types, test-format, test-knip, test-coverage, verify-build, security-scan, semgrep-scan, codeql-scan]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
