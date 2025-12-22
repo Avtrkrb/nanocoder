@@ -37,16 +37,22 @@ jobs:
       - name: Update Homebrew formula
         run: |
           chmod +x scripts/update-homebrew-formula.sh
-          ./scripts/update-homebrew-formula.sh ${{ inputs.version }}
+          ./scripts/update-homebrew-formula.sh "$VERSION"
+        env:
+          VERSION: ${{ inputs.version }}
 
       - name: Commit and push formula
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/nanocoder.rb
-          git commit -m "chore: update homebrew formula to v${{ inputs.version }}" || echo "No changes to commit"
+          git commit -m "chore: update homebrew formula to v$VERSION" || echo "No changes to commit"
           git push origin main
+        env:
+          VERSION: ${{ inputs.version }}
 
       - name: Summary
         run: |
-          echo "✅ Homebrew formula updated to v${{ inputs.version }}"
+          echo "✅ Homebrew formula updated to v$VERSION"
+        env:
+          VERSION: ${{ inputs.version }}

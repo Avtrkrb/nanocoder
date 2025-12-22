@@ -44,16 +44,22 @@ jobs:
       - name: Update Nix package
         run: |
           chmod +x scripts/update-nix-version.sh
-          ./scripts/update-nix-version.sh ${{ inputs.version }}
+          ./scripts/update-nix-version.sh "$VERSION"
+        env:
+          VERSION: ${{ inputs.version }}
 
       - name: Commit and push Nix update
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add nix/packages/default/default.nix
-          git commit -m "chore: update nix package to v${{ inputs.version }}" || echo "No changes to commit"
+          git commit -m "chore: update nix package to v$VERSION" || echo "No changes to commit"
           git push origin main
+        env:
+          VERSION: ${{ inputs.version }}
 
       - name: Summary
         run: |
-          echo "✅ Nix package updated to v${{ inputs.version }}"
+          echo "✅ Nix package updated to v$VERSION"
+        env:
+          VERSION: ${{ inputs.version }}

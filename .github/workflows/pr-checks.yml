@@ -155,7 +155,7 @@ jobs:
 
       - name: Generate coverage summary
         run: |
-          pnpm exec c8 report --reporter=json-summary
+          pnpm exec c8 report --reporter=json-summary --include='source/**/*.ts' --exclude='**/*.spec.ts'
 
       - name: Extract coverage percentage
         id: coverage
@@ -217,8 +217,8 @@ jobs:
         shell: bash
 
   # Security and dependency analysis (runs once)
-  security-scan:
-    name: Security & Dependency Analysis
+  package-audit:
+    name: Package Audit Analysis
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -309,7 +309,7 @@ jobs:
   pr-comment:
     name: PR Results Summary
     runs-on: ubuntu-latest
-    needs: [test-lint, test-types, test-format, test-knip, test-coverage, verify-build, security-scan, semgrep-scan, codeql-scan]
+    needs: [test-lint, test-types, test-format, test-knip, test-coverage, verify-build, package-audit, semgrep-scan, codeql-scan]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
