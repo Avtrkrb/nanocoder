@@ -5,6 +5,10 @@ on:
     types: [opened, synchronize, reopened]
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 env:
   ENABLE_COVERAGE_THRESHOLD: '80'
   FAIL_ON_COVERAGE_DROP: 'true'
@@ -248,105 +252,98 @@ jobs:
         continue-on-error: true
 
   # PR Comment with results
-  # pr-comment:
-  #   name: PR Results Summary
-  #   runs-on: ubuntu-latest
-  #   needs: [test-lint, test-types, test-format, test-knip, test-coverage, verify-build, security-scan]
-  #   if: always() && github.event_name == 'pull_request'
-  #   steps:
-  #     - name: Comment on PR
-  #       uses: actions/github-script@v8
-  #       with:
-  #         script: |
-  #           const { owner, repo } = context.repo;
-  #           const { number } = context.issue;
+  pr-comment:
+    name: PR Results Summary
+    runs-on: ubuntu-latest
+    needs: [test-lint, test-types, test-format, test-knip, test-coverage, verify-build, security-scan]
+    if: always() && github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment on PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { number } = context.issue;
 
-  #           // Check job results
-  #           const lintResult = '${{ needs.test-lint.result }}';
-  #           const typesResult = '${{ needs.test-types.result }}';
-  #           const formatResult = '${{ needs.test-format.result }}';
-  #           const knipResult = '${{ needs.test-knip.result }}';
-  #           const coverageResult = '${{ needs.test-coverage.result }}';
-  #           const buildResult = '${{ needs.verify-build.result }}';
-  #           const securityResult = '${{ needs.security-scan.result }}';
+            // Check job results
+            const lintResult = '${{ needs.test-lint.result }}';
+            const typesResult = '${{ needs.test-types.result }}';
+            const formatResult = '${{ needs.test-format.result }}';
+            const knipResult = '${{ needs.test-knip.result }}';
+            const coverageResult = '${{ needs.test-coverage.result }}';
+            const buildResult = '${{ needs.verify-build.result }}';
+            const securityResult = '${{ needs.security-scan.result }}';
 
-  #           // Build status message
-  #           let status = '✅ All checks passed!';
-  #           if (lintResult !== 'success' || typesResult !== 'success' || formatResult !== 'success' ||
-  #               knipResult !== 'success' || coverageResult !== 'success' || buildResult !== 'success' || securityResult !== 'success') {
-  #             status = '❌ Some checks failed';
-  #           }
+            // Build status message
+            let status = '✅ All checks passed!';
+            let hasFailures = false;
+            if (lintResult !== 'success' || typesResult !== 'success' || formatResult !== 'success' ||
+                knipResult !== 'success' || coverageResult !== 'success' || buildResult !== 'success' || securityResult !== 'success') {
+              status = '❌ Some checks failed';
+              hasFailures = true;
+            }
 
-  #           // Get coverage percentage if available
-  #           let coverageText = 'Coverage analysis';
-  #           if (coverageResult === 'success') {
-  #             try {
-  #               const coverageOutput = '${{ needs.test-coverage.outputs.coverage }}';
-  #               if (coverageOutput) {
-  #                 coverageText = `Coverage: ${coverageOutput}%`;
-  #               }
-  #             } catch (e) {
-  #               // Fallback to generic text
-  #             }
-  #           }
+            // Get coverage percentage if available
+            let coverageText = 'Coverage analysis';
+            if (coverageResult === 'success') {
+              try {
+                const coverageOutput = '${{ needs.test-coverage.outputs.coverage }}';
+                if (coverageOutput) {
+                  coverageText = `Coverage: ${coverageOutput}%`;
+                }
+              } catch (e) {
+                // Fallback to generic text
+              }
+            }
 
-  #           // Create comment body
-  #           const comment = `
-  #           ## 🤖 PR Checks Summary
+            // Create comment body
+            const comment = `
+            ## 🤖 PR Checks Summary
 
-  #           ### Test: Linting ${lintResult === 'success' ? '✅' : '❌'}
-  #           Code linting with Biome
+            | Check | Status | Description |
+            |-------|--------|-------------|
+            | Linting | ${lintResult === 'success' ? '✅' : '❌'} | Code linting with Biome |
+            | TypeScript | ${typesResult === 'success' ? '✅' : '❌'} | TypeScript type checking |
+            | Formatting | ${formatResult === 'success' ? '✅' : '❌'} | Code formatting check |
+            | Dependencies | ${knipResult === 'success' ? '✅' : '❌'} | Unused dependency check (knip) |
+            | Coverage | ${coverageResult === 'success' ? '✅' : '❌'} | ${coverageText}. Coverage threshold (${{ env.ENABLE_COVERAGE_THRESHOLD }}%) met |
+            | Build | ${buildResult === 'success' ? '✅' : '❌'} | Build and artifact verification |
+            | Security | ${securityResult === 'success' ? '✅' : '❌'} | No high-severity vulnerabilities detected |
 
-  #           ### Test: TypeScript ${typesResult === 'success' ? '✅' : '❌'}
-  #           TypeScript type checking
+            **Overall Status: ${status}**
 
-  #           ### Test: Formatting ${formatResult === 'success' ? '✅' : '❌'}
-  #           Code formatting check
+            ---
+            *This comment was automatically generated by PR checks workflow*
+            `;
 
-  #           ### Test: Dependencies ${knipResult === 'success' ? '✅' : '❌'}
-  #           Unused dependency check (knip)
+            // Find existing bot comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: number,
+            });
 
-  #           ### Test: Coverage ${coverageResult === 'success' ? '✅' : '❌'}
-  #           ${coverageText}. Coverage threshold (${{ env.ENABLE_COVERAGE_THRESHOLD }}%) met
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('PR Checks Summary')
+            );
 
-  #           ### Verify: Build ${buildResult === 'success' ? '✅' : '❌'}
-  #           Build and artifact verification
-
-  #           ### Security Scan: ${securityResult === 'success' ? '✅' : '❌'}
-  #           No high-severity vulnerabilities detected
-
-  #           **Overall Status: ${status}**
-
-  #           ---
-  #           *This comment was automatically generated by PR checks workflow*
-  #           `;
-
-  #           // Find existing bot comment
-  #           const { data: comments } = await github.rest.issues.listComments({
-  #             owner,
-  #             repo,
-  #             issue_number: number,
-  #           });
-
-  #           const botComment = comments.find(c =>
-  #             c.user.type === 'Bot' &&
-  #             c.body.includes('PR Checks Summary')
-  #           );
-
-  #           if (botComment) {
-  #             // Update existing comment
-  #             await github.rest.issues.updateComment({
-  #               owner,
-  #               repo,
-  #               comment_id: botComment.id,
-  #               body: comment,
-  #             });
-  #           } else {
-  #             // Create new comment
-  #             await github.rest.issues.createComment({
-  #               owner,
-  #               repo,
-  #               issue_number: number,
-  #               body: comment,
-  #             });
-  #           }
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: botComment.id,
+                body: comment,
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: number,
+                body: comment,
+              });
+            }
