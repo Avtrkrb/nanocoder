@@ -23,6 +23,7 @@ import {useAppState} from '@/hooks/useAppState';
 import {useDirectoryTrust} from '@/hooks/useDirectoryTrust';
 import {useModeHandlers} from '@/hooks/useModeHandlers';
 import {useNonInteractiveMode} from '@/hooks/useNonInteractiveMode';
+import {usePlanningHandlers} from '@/hooks/usePlanningHandlers';
 import {ThemeContext} from '@/hooks/useTheme';
 import {TitleShapeContext, updateTitleShape} from '@/hooks/useTitleShape';
 import {useToolHandler} from '@/hooks/useToolHandler';
@@ -404,6 +405,18 @@ export default function App({
 		handleMessageSubmitRef.current = appHandlers.handleMessageSubmit;
 	}, [appHandlers.handleMessageSubmit]);
 
+	// Setup planning handlers
+	const planningHandlers = usePlanningHandlers({
+		planningPhase: appState.planningPhase,
+		planFile: appState.planFile,
+		planningEnabled: appState.planningEnabled,
+		setPlanningPhase: appState.setPlanningPhase,
+		setPlanFile: appState.setPlanFile,
+		setPlanningEnabled: appState.setPlanningEnabled,
+		setDevelopmentMode: appState.setDevelopmentMode,
+		addToChatQueue: appState.addToChatQueue,
+	});
+
 	// Setup non-interactive mode
 	const {nonInteractiveLoadingMessage} = useNonInteractiveMode({
 		nonInteractivePrompt,
@@ -438,6 +451,7 @@ export default function App({
 				vscodeMode,
 				vscodePort: vscodeServer.actualPort,
 				vscodeRequestedPort: vscodeServer.requestedPort,
+				planningPhase: appState.planningPhase,
 			}),
 		[
 			shouldShowWelcome,
@@ -452,6 +466,7 @@ export default function App({
 			vscodeMode,
 			vscodeServer.actualPort,
 			vscodeServer.requestedPort,
+			appState.planningPhase,
 		],
 	);
 
@@ -561,7 +576,9 @@ export default function App({
 							appState.isModelDatabaseMode ||
 							appState.isConfigWizardMode ||
 							appState.isTitleShapeSelectionMode ||
-							appState.isCheckpointLoadMode) && (
+							appState.isCheckpointLoadMode ||
+							planningHandlers.isQuestionMode ||
+							planningHandlers.isPlanApprovalMode) && (
 							<ModalSelectors
 								isModelSelectionMode={appState.isModelSelectionMode}
 								isProviderSelectionMode={appState.isProviderSelectionMode}
@@ -570,6 +587,9 @@ export default function App({
 								isConfigWizardMode={appState.isConfigWizardMode}
 								isCheckpointLoadMode={appState.isCheckpointLoadMode}
 								isTitleShapeSelectionMode={appState.isTitleShapeSelectionMode}
+								isQuestionMode={planningHandlers.isQuestionMode}
+								isPlanApprovalMode={planningHandlers.isPlanApprovalMode}
+								planFile={appState.planFile}
 								client={appState.client}
 								currentModel={appState.currentModel}
 								currentProvider={appState.currentProvider}
@@ -591,6 +611,15 @@ export default function App({
 								onConfigWizardCancel={modeHandlers.handleConfigWizardCancel}
 								onCheckpointSelect={appHandlers.handleCheckpointSelect}
 								onCheckpointCancel={appHandlers.handleCheckpointCancel}
+								question={planningHandlers.currentQuestion}
+								questionNumber={planningHandlers.questionNumber}
+								totalQuestions={planningHandlers.totalQuestions}
+								onQuestionAnswer={planningHandlers.handleQuestionAnswer}
+								onQuestionSkip={planningHandlers.handleQuestionSkip}
+								onQuestionCancel={planningHandlers.handleQuestionCancel}
+								onPlanApprove={planningHandlers.handlePlanApprove}
+								onPlanEdit={planningHandlers.handlePlanEdit}
+								onPlanDiscard={planningHandlers.handlePlanDiscard}
 							/>
 						)}
 

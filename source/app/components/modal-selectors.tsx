@@ -1,10 +1,13 @@
 import React from 'react';
 import {ModelDatabaseDisplay} from '@/commands/model-database';
 import CheckpointSelector from '@/components/checkpoint-selector';
+import InteractiveQuestion from '@/components/interactive-question';
 import ModelSelector from '@/components/model-selector';
+import PlanApproval from '@/components/plan-approval';
 import ProviderSelector from '@/components/provider-selector';
 import ThemeSelector from '@/components/theme-selector';
 import TitleShapeSelector from '@/components/title-shape-selector';
+import type {QuestionAnswer} from '@/planning/questions/types';
 import type {CheckpointListItem, LLMClient} from '@/types';
 import {ConfigWizard} from '@/wizard/config-wizard';
 
@@ -17,6 +20,11 @@ export interface ModalSelectorsProps {
 	isConfigWizardMode: boolean;
 	isCheckpointLoadMode: boolean;
 	isTitleShapeSelectionMode: boolean;
+
+	// Planning mode state
+	isQuestionMode: boolean;
+	isPlanApprovalMode: boolean;
+	planFile: import('@/planning/types').PlanFile | null;
 
 	// Current values
 	client: LLMClient | null;
@@ -53,6 +61,17 @@ export interface ModalSelectorsProps {
 	// Handlers - Checkpoint
 	onCheckpointSelect: (name: string, backup: boolean) => Promise<void>;
 	onCheckpointCancel: () => void;
+
+	// Handlers - Planning
+	question?: import('@/planning/questions/types').Question | null;
+	questionNumber?: number;
+	totalQuestions?: number;
+	onQuestionAnswer?: (answer: QuestionAnswer) => void;
+	onQuestionSkip?: () => void;
+	onQuestionCancel?: () => void;
+	onPlanApprove?: (mode: 'normal' | 'auto-accept') => void;
+	onPlanEdit?: () => void;
+	onPlanDiscard?: () => void;
 }
 
 /**
@@ -67,6 +86,9 @@ export function ModalSelectors({
 	isConfigWizardMode,
 	isCheckpointLoadMode,
 	isTitleShapeSelectionMode,
+	isQuestionMode,
+	isPlanApprovalMode,
+	planFile,
 	client,
 	currentModel,
 	currentProvider,
@@ -84,7 +106,42 @@ export function ModalSelectors({
 	onCheckpointCancel,
 	onTitleShapeSelect,
 	onTitleShapeSelectionCancel,
+	question,
+	questionNumber = 1,
+	totalQuestions = 1,
+	onQuestionAnswer,
+	onQuestionSkip,
+	onQuestionCancel,
+	onPlanApprove,
+	onPlanEdit,
+	onPlanDiscard,
 }: ModalSelectorsProps): React.ReactElement | null {
+	// Planning mode modals - highest priority
+	if (isQuestionMode && question) {
+		return (
+			<InteractiveQuestion
+				question={question}
+				questionNumber={questionNumber}
+				totalQuestions={totalQuestions}
+				onAnswer={onQuestionAnswer!}
+				onSkip={onQuestionSkip!}
+				onCancel={onQuestionCancel!}
+			/>
+		);
+	}
+
+	if (isPlanApprovalMode && planFile) {
+		return (
+			<PlanApproval
+				planFile={planFile}
+				onApprove={onPlanApprove!}
+				onEdit={onPlanEdit!}
+				onDiscard={onPlanDiscard!}
+			/>
+		);
+	}
+
+	// Existing modals
 	if (isModelSelectionMode) {
 		return (
 			<ModelSelector

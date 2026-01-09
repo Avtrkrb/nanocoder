@@ -109,21 +109,6 @@ export interface PlanFile {
 }
 
 /**
- * Plan file content (stored as .plan.md)
- */
-export interface PlanContent {
-	title: string;
-	created: string;
-	updated: string;
-	phase: PlanningPhase;
-	userRequest: string;
-	clarifications: string;
-	implementationPlan: string;
-	filesToModify: string;
-	verification: string;
-}
-
-/**
  * Default initial planning state
  */
 export function createInitialPlanningState(): PlanningState {

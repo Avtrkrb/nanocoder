@@ -301,7 +301,3 @@ export function getPlanningManager(): PlanningManager {
 	}
 	return planningManagerInstance;
 }
-
-export function resetPlanningManager(): void {
-	planningManagerInstance = null;
-}

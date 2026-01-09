@@ -2,6 +2,7 @@ import {existsSync} from 'fs';
 import {Box, Text} from 'ink';
 import {memo} from 'react';
 
+import PhaseIndicator from '@/components/phase-indicator';
 import {TitledBoxWithPreferences} from '@/components/ui/titled-box';
 import {confDirMap} from '@/config/index';
 import {getThemeColors, themes} from '@/config/themes';
@@ -10,6 +11,7 @@ import {
 	PATH_LENGTH_NORMAL_TERMINAL,
 } from '@/constants';
 import {useResponsiveTerminal} from '@/hooks/useTerminalWidth';
+import type {PlanningPhase} from '@/planning/types';
 import type {LSPConnectionStatus, MCPConnectionStatus} from '@/types/core';
 import type {ThemePreset} from '@/types/ui';
 import type {UpdateInfo} from '@/types/utils';
@@ -32,6 +34,7 @@ export default memo(function Status({
 	vscodeMode,
 	vscodePort,
 	vscodeRequestedPort,
+	planningPhase,
 }: {
 	provider: string;
 	model: string;
@@ -45,6 +48,7 @@ export default memo(function Status({
 	vscodeMode?: boolean;
 	vscodePort?: number | null;
 	vscodeRequestedPort?: number;
+	planningPhase?: PlanningPhase | null;
 }) {
 	const {boxWidth, isNarrow, truncatePath} = useResponsiveTerminal();
 	const colors = getThemeColors(theme);
@@ -165,6 +169,10 @@ export default memo(function Status({
 								<Text color={colors.secondary}>{updateInfo.updateMessage}</Text>
 							) : null}
 						</>
+					)}
+					{/* Planning phase indicator for narrow terminals */}
+					{planningPhase && (
+						<PhaseIndicator currentPhase={planningPhase} showLabel={false} />
 					)}
 				</Box>
 			) : (
@@ -289,6 +297,12 @@ export default memo(function Status({
 						</>
 					)}
 				</TitledBoxWithPreferences>
+			)}
+			{/* Planning phase indicator for wide terminals */}
+			{!isNarrow && planningPhase && (
+				<Box marginBottom={1}>
+					<PhaseIndicator currentPhase={planningPhase} showLabel={true} />
+				</Box>
 			)}
 		</>
 	);
