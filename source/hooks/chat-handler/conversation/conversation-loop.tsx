@@ -3,6 +3,7 @@ import type {ConversationStateManager} from '@/app/utils/conversation-state';
 import AssistantMessage from '@/components/assistant-message';
 import {ErrorMessage} from '@/components/message-box';
 import UserMessage from '@/components/user-message';
+import {isToolAllowed} from '@/context/mode-context';
 import {parseToolCalls} from '@/tool-calling/index';
 import type {ToolManager} from '@/tools/tool-manager';
 import type {LLMClient, Message, ToolCall, ToolResult} from '@/types/core';
@@ -263,17 +264,22 @@ export const processAssistantResponse = async (
 
 	// Handle tool calls if present - this continues the loop
 	if (validToolCalls && validToolCalls.length > 0) {
-		// Note: Plan mode tool blocking was removed - the referenced tools
-		// (create_file, delete_lines, insert_lines, replace_lines) no longer exist.
-		// Plan mode restrictions are handled via needsApproval in tool definitions.
-		// TODO: Implement registry-based blocking for plan mode (track as separate issue).
+		// Enhanced Plan Mode: Check phase-based tool restrictions
+		// Tools are restricted based on the current planning phase
 
 		// Separate tools that need confirmation vs those that don't
 		// Check tool's needsApproval property to determine if confirmation is needed
 		const toolsNeedingConfirmation: ToolCall[] = [];
 		const toolsToExecuteDirectly: ToolCall[] = [];
+		const toolsBlockedByPhase: ToolCall[] = [];
 
 		for (const toolCall of validToolCalls) {
+			// Check if tool is allowed in current planning phase
+			if (!isToolAllowed(toolCall.function.name)) {
+				toolsBlockedByPhase.push(toolCall);
+				continue;
+			}
+
 			// Check if tool has a validator
 			let validationFailed = false;
 
@@ -358,6 +364,62 @@ export const processAssistantResponse = async (
 			} else {
 				toolsNeedingConfirmation.push(toolCall);
 			}
+		}
+
+		// Handle tools blocked by planning phase
+		if (toolsBlockedByPhase.length > 0) {
+			const {getCurrentPlanningPhase} = await import('@/context/mode-context');
+			const {PLANNING_PHASE_LABELS} = await import('@/planning/types');
+			const currentPhase = getCurrentPlanningPhase();
+
+			const blockedToolNames = toolsBlockedByPhase
+				.map(t => t.function.name)
+				.join(', ');
+			const phaseLabel = currentPhase
+				? PLANNING_PHASE_LABELS[currentPhase]
+				: 'Unknown Phase';
+
+			const errorMessage =
+				`🚫 Tool(s) blocked in planning mode\n\n` +
+				`The following tools are not allowed in the current phase (${phaseLabel}):\n` +
+				`  ${blockedToolNames}\n\n` +
+				`Allowed tools in this phase:\n` +
+				`  • read_file\n` +
+				`  • find_files\n` +
+				`  • search_file_contents\n` +
+				`  • list_directory\n\n` +
+				`Use Shift+Tab to switch modes or wait for the planning phase to complete.`;
+
+			// Add blocked tool message to chat
+			addToChatQueue(
+				<ErrorMessage
+					key={`blocked-tools-${Date.now()}`}
+					message={errorMessage}
+				/>,
+			);
+
+			// Send error results back to LLM
+			const blockedToolResults: ToolResult[] = toolsBlockedByPhase.map(
+				toolCall => ({
+					tool_call_id: toolCall.id,
+					role: 'tool',
+					name: toolCall.function.name,
+					content: `Tool blocked in planning phase: ${currentPhase || 'unknown'}`,
+				}),
+			);
+
+			// Add tool results to messages and continue loop
+			const blockedBuilder = new MessageBuilder(updatedMessages);
+			blockedBuilder.addToolResults(blockedToolResults);
+			const updatedMessagesWithBlocked = blockedBuilder.build();
+			setMessages(updatedMessagesWithBlocked);
+
+			// Continue the conversation with blocked tool results
+			await processAssistantResponse({
+				...params,
+				messages: updatedMessagesWithBlocked,
+			});
+			return;
 		}
 
 		// Execute non-confirmation tools directly

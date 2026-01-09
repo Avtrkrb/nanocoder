@@ -4,6 +4,7 @@ import {loadPreferences} from '@/config/preferences';
 import {defaultTheme} from '@/config/themes';
 import {CustomCommandExecutor} from '@/custom-commands/executor';
 import {CustomCommandLoader} from '@/custom-commands/loader';
+import type {PlanFile, PlanningPhase} from '@/planning/types';
 import {createTokenizer} from '@/tokenization/index.js';
 import {ToolManager} from '@/tools/tool-manager';
 import type {CheckpointListItem} from '@/types/checkpoint';
@@ -119,6 +120,13 @@ export function useAppState() {
 	// Development mode state
 	const [developmentMode, setDevelopmentMode] =
 		useState<DevelopmentMode>('normal');
+
+	// Planning mode state
+	const [planningPhase, setPlanningPhase] = useState<PlanningPhase | null>(
+		null,
+	);
+	const [planFile, setPlanFile] = useState<PlanFile | null>(null);
+	const [planningEnabled, setPlanningEnabled] = useState<boolean>(false);
 
 	// Tool confirmation state
 	const [pendingToolCalls, setPendingToolCalls] = useState<ToolCall[]>([]);
@@ -266,6 +274,9 @@ export function useAppState() {
 		isToolConfirmationMode,
 		isToolExecuting,
 		developmentMode,
+		planningPhase,
+		planFile,
+		planningEnabled,
 		pendingToolCalls,
 		currentToolIndex,
 		completedToolResults,
@@ -308,6 +319,9 @@ export function useAppState() {
 		setIsToolConfirmationMode,
 		setIsToolExecuting,
 		setDevelopmentMode,
+		setPlanningPhase,
+		setPlanFile,
+		setPlanningEnabled,
 		setPendingToolCalls,
 		setCurrentToolIndex,
 		setCompletedToolResults,
