@@ -4,7 +4,11 @@ import {fetchUrlTool} from '@/tools/fetch-url';
 import {findFilesTool} from '@/tools/find-files';
 import {
 	gitBranchSuggestTool,
+	gitBranchStrategyTool,
+	gitChangelogTool,
+	gitCodeOwnersTool,
 	gitCreatePRTool,
+	gitReleaseTool,
 	gitSmartCommitTool,
 	gitStatusEnhancedTool,
 } from '@/tools/git';
@@ -40,6 +44,11 @@ const allTools: NanocoderToolExport[] = [
 	gitCreatePRTool,
 	gitBranchSuggestTool,
 	gitStatusEnhancedTool,
+	// Phase 2 tools
+	gitCodeOwnersTool,
+	gitChangelogTool,
+	gitReleaseTool,
+	gitBranchStrategyTool,
 ];
 
 // Export native AI SDK tools registry (for passing directly to AI SDK)

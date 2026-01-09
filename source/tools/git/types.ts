@@ -132,3 +132,155 @@ export interface EnhancedStatusInput {
 	detailed?: boolean;
 	showStash?: boolean;
 }
+
+/**
+ * Branch strategy configuration
+ */
+export interface BranchStrategyConfig {
+	strategy: WorkflowStrategy;
+	enforceRules?: boolean;
+	requireReviews?: boolean;
+	requireStatusChecks?: boolean;
+	requiredReviewers?: number;
+	allowedBranches?: string[];
+}
+
+/**
+ * Input for git_branch_strategy tool
+ */
+export interface BranchStrategyInput {
+	action?: 'get' | 'set' | 'validate' | 'recommend';
+	strategy?: WorkflowStrategy;
+	config?: BranchStrategyConfig;
+	currentBranch?: string;
+}
+
+/**
+ * Semantic version information
+ */
+export interface SemanticVersion {
+	major: number;
+	minor: number;
+	patch: number;
+	prerelease?: string;
+	build?: string;
+	version: string; // Full version string
+}
+
+/**
+ * Release configuration
+ */
+export interface ReleaseConfig {
+	versionPrefix?: string; // e.g., "v"
+	includeShaInTags?: boolean;
+	changelogFormat?: 'keep-a-changelog' | 'standard' | 'custom';
+	autoDetectVersion?: boolean;
+}
+
+/**
+ * Release notes structure
+ */
+export interface ReleaseNotes {
+	version: string;
+	date: string;
+	commits: Array<{
+		type: CommitType;
+		scope?: string;
+		subject: string;
+		breaking?: boolean;
+	}>;
+	categories: {
+		features: string[];
+		fixes: string[];
+		breaking: string[];
+		other: string[];
+	};
+	summary: string;
+}
+
+/**
+ * Input for git_release tool
+ */
+export interface ReleaseInput {
+	version?: string; // Optional explicit version
+	level?: 'major' | 'minor' | 'patch' | 'auto'; // Bump level
+	dryRun?: boolean;
+	createTag?: boolean;
+	pushTag?: boolean;
+	generateNotes?: boolean;
+	updateChangelog?: boolean;
+	prerelease?: string;
+}
+
+/**
+ * Changelog entry
+ */
+export interface ChangelogEntry {
+	version: string;
+	date: string;
+	released: boolean;
+	changes: {
+		added?: string[];
+		changed?: string[];
+		deprecated?: string[];
+		removed?: string[];
+		fixed?: string[];
+		security?: string[];
+	};
+	links?: {
+		diff?: string;
+		compare?: string;
+	};
+}
+
+/**
+ * Changelog generation options
+ */
+export interface ChangelogOptions {
+	format?: 'keep-a-changelog' | 'standard' | 'compact';
+	includeUnreleased?: boolean;
+	groupByType?: boolean;
+	linkCommits?: boolean;
+	linkIssues?: boolean;
+	repositoryUrl?: string;
+}
+
+/**
+ * Input for git_changelog tool
+ */
+export interface ChangelogInput {
+	version?: string;
+	since?: string; // Tag or ref
+	until?: string; // Tag or ref
+	format?: ChangelogOptions['format'];
+	output?: 'file' | 'stdout' | 'both';
+	update?: boolean; // Update existing changelog
+}
+
+/**
+ * Code owner rule from CODEOWNERS file
+ */
+export interface CodeOwnerRule {
+	pattern: string; // File path pattern
+	owners: string[]; // Usernames or emails
+	line: number; // Line number for errors
+}
+
+/**
+ * Code owner match result
+ */
+export interface CodeOwnerMatch {
+	file: string;
+	owners: string[];
+	matchedRule: CodeOwnerRule;
+}
+
+/**
+ * Input for git_codeowners tool
+ */
+export interface CodeOwnerInput {
+	files?: string[]; // Specific files to check
+	suggest?: boolean; // Generate CODEOWNERS suggestions
+	validate?: boolean; // Validate existing CODEOWNERS
+	format?: 'github' | 'gitlab';
+}
