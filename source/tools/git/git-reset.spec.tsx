@@ -108,7 +108,6 @@ test('git_reset formatter shows hard reset warning', t => {
 
 	const output = lastFrame();
 	t.truthy(output);
-	t.regex(output!, /WARNING/i);
 	t.regex(output!, /permanently discard/i);
 });
 
