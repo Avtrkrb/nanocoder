@@ -1,10 +1,12 @@
 import type React from 'react';
+import type {CustomCommandLoader} from '@/custom-commands/loader';
 import type {ToolManager} from '@/tools/tool-manager';
 import type {LLMClient, Message, ToolCall} from '@/types/core';
 
 export interface UseChatHandlerProps {
 	client: LLMClient | null;
 	toolManager: ToolManager | null;
+	customCommandLoader: CustomCommandLoader | null;
 	messages: Message[];
 	setMessages: (messages: Message[]) => void;
 	currentProvider: string;

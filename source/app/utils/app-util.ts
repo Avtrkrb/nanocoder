@@ -37,6 +37,7 @@ const SPECIAL_COMMANDS = {
 	CHECKPOINT: 'checkpoint',
 	EXPLORER: 'explorer',
 	SCHEDULE: 'schedule',
+	COMMANDS: 'commands',
 } as const;
 
 /** Checkpoint subcommands */
@@ -365,6 +366,107 @@ description: ${safeName.replace(/\.md$/, '')} scheduled command
 	// Ask the AI to help write the schedule command content
 	await onHandleChatMessage(
 		`I just created a new schedule command file at .nanocoder/schedules/${safeName}. Help me write the content for this scheduled task. Ask me what I want this scheduled job to do, then write the markdown prompt into the file using the write_file tool. The file should contain a clear prompt that instructs the AI agent what to do when this schedule runs. Keep the YAML frontmatter at the top with the description field.`,
+	);
+
+	return true;
+}
+
+/**
+ * Handles /commands create — creates the command file and prompts the AI to help write it.
+ * Returns true if handled.
+ */
+async function handleCommandCreate(
+	commandParts: string[],
+	options: MessageSubmissionOptions,
+): Promise<boolean> {
+	if (
+		(commandParts[0] !== SPECIAL_COMMANDS.COMMANDS &&
+			commandParts[0] !== 'custom-commands') ||
+		commandParts[1] !== 'create'
+	) {
+		return false;
+	}
+
+	const {
+		onAddToChatQueue,
+		onHandleChatMessage,
+		onCommandComplete,
+		getNextComponentKey,
+	} = options;
+	const fileName = commandParts[2];
+
+	if (!fileName) {
+		onAddToChatQueue(
+			React.createElement(ErrorMessage, {
+				key: `commands-create-error-${getNextComponentKey()}`,
+				message:
+					'Usage: /commands create <name>\nExample: /commands create review-code',
+			}),
+		);
+		onCommandComplete?.();
+		return true;
+	}
+
+	const safeName = fileName.endsWith('.md') ? fileName : `${fileName}.md`;
+	const commandsDir = join(process.cwd(), '.nanocoder', 'commands');
+	const filePath = join(commandsDir, safeName);
+
+	if (existsSync(filePath)) {
+		onAddToChatQueue(
+			React.createElement(ErrorMessage, {
+				key: `commands-create-exists-${getNextComponentKey()}`,
+				message: `Command file already exists: .nanocoder/commands/${safeName}`,
+			}),
+		);
+		onCommandComplete?.();
+		return true;
+	}
+
+	mkdirSync(commandsDir, {recursive: true});
+
+	const template = `---
+description: ${safeName.replace(/\.md$/, '')} custom command
+---
+
+`;
+
+	writeFileSync(filePath, template, 'utf-8');
+
+	onAddToChatQueue(
+		React.createElement(SuccessMessage, {
+			key: `commands-created-${getNextComponentKey()}`,
+			message: `Created command file: .nanocoder/commands/${safeName}`,
+			hideBox: true,
+		}),
+	);
+
+	// Ask the AI to help write the custom command content
+	const commandBaseName = safeName.replace(/\.md$/, '');
+	await onHandleChatMessage(
+		`I just created a new custom command file at .nanocoder/commands/${safeName}. Help me write the content for this command. Ask me what I want this command to do, then write the markdown prompt into the file using the write_file tool. The file should contain a clear prompt that instructs the AI what to do when this command is invoked via /${commandBaseName}. Keep the YAML frontmatter at the top.
+
+Here is an example of the frontmatter format with all available fields:
+
+---
+description: Generate unit tests for a file
+aliases: [test, unittest]
+parameters: [filename]
+tags: [testing, quality]
+triggers: [write tests, unit test]
+estimated-tokens: 2000
+resources: true
+category: testing
+version: 1.0.0
+author: user
+examples:
+  - /gen-tests src/utils.ts
+  - /gen-tests lib/parser.ts
+references: [docs/testing-guide.md]
+dependencies: [lint]
+---
+Generate comprehensive unit tests for {{filename}}...
+
+All fields are optional except description. Use whichever fields are appropriate for the user's needs. Parameters defined here can be used as {{param}} placeholders in the prompt body.`,
 	);
 
 	return true;
@@ -707,6 +809,11 @@ async function handleSlashCommand(
 
 	// Try /schedule create (creates file + AI assistance)
 	if (await handleScheduleCreate(commandParts, options)) {
+		return;
+	}
+
+	// Try /commands create (creates file + AI assistance)
+	if (await handleCommandCreate(commandParts, options)) {
 		return;
 	}
 

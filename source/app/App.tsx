@@ -268,6 +268,7 @@ export default function App({
 	const chatHandler = useChatHandler({
 		client: appState.client,
 		toolManager: appState.toolManager,
+		customCommandLoader: appState.customCommandLoader,
 		messages: appState.messages,
 		setMessages: appState.updateMessages,
 		currentProvider: appState.currentProvider,

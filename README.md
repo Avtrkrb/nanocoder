@@ -784,44 +784,34 @@ The `/explorer` command opens an interactive file browser for navigating your pr
 
 #### Custom Commands
 
-Nanocoder supports custom commands defined as markdown files in the `.nanocoder/commands` directory. Like `agents.config.json`, this directory is created per codebase, allowing you to create reusable prompts with parameters and organize them by category specific to each project.
+Nanocoder supports custom commands defined as markdown files in `.nanocoder/commands/`. Define reusable AI prompts with parameters, aliases, and auto-injection support, organized per project.
 
-**Example custom command** (`.nanocoder/commands/test.md`):
+```bash
+# Create a command with AI assistance
+/commands create review-code
+
+# Or create the file manually in .nanocoder/commands/review-code.md
+```
+
+**Example** (`.nanocoder/commands/test.md`):
 
 ```markdown
 ---
-description: 'Generate comprehensive unit tests for the specified component'
-aliases: ['testing', 'spec']
-parameters:
-  - name: 'component'
-    description: 'The component or function to test'
-    required: true
+description: Generate comprehensive unit tests
+aliases: [unittest, test-gen]
+parameters: [filename]
 ---
 
-Generate comprehensive unit tests for {{component}}. Include:
-
-- Happy path scenarios
-- Edge cases and error handling
-- Mock dependencies where appropriate
-- Clear test descriptions
+Generate comprehensive unit tests for {{filename}}.
 ```
 
-**Usage**: `/test component="UserService"`
+**Usage**: `/test src/utils.ts`
 
-**Features**:
+**Commands**: `/commands` (list), `/commands show <name>`, `/commands refresh`, `/commands create <name>`
 
-- YAML frontmatter for metadata (description, aliases, parameters)
-- Template variable substitution with `{{parameter}}` syntax
-- Namespace support through directories (e.g., `/refactor:dry`)
-- Autocomplete integration for command discovery
-- Parameter validation and prompting
+**Pre-installed**: `/test`, `/review`, `/refactor:dry`, `/refactor:solid`
 
-**Pre-installed Commands**:
-
-- `/test` - Generate comprehensive unit tests for components
-- `/review` - Perform thorough code reviews with suggestions
-- `/refactor:dry` - Apply DRY (Don't Repeat Yourself) principle
-- `/refactor:solid` - Apply SOLID design principles
+> **Full documentation**: See the [Custom Commands Guide](docs/custom-commands.md) for frontmatter reference, auto-injection, resources, namespaces, and more.
 
 ## Features
 
@@ -844,10 +834,11 @@ Generate comprehensive unit tests for {{component}}. Include:
 ### Custom Command System
 
 - **Markdown-based commands**: Define reusable prompts in `.nanocoder/commands/`
+- **AI-assisted creation**: `/commands create <name>` scaffolds a command and helps you write it
 - **Template variables**: Use `{{parameter}}` syntax for dynamic content
-- **Namespace organization**: Organize commands in folders (e.g., `refactor/dry.md`)
-- **Autocomplete support**: Tab completion for command discovery
-- **Rich metadata**: YAML frontmatter for descriptions, aliases, and parameters
+- **Auto-injection**: Commands with tags/triggers are automatically injected into context when relevant
+- **Namespace organization**: Organize commands in folders (e.g., `refactor/dry.md` becomes `/refactor:dry`)
+- **Rich metadata**: YAML frontmatter for descriptions, aliases, parameters, and [more](docs/custom-commands.md)
 
 ### Enhanced User Experience
 

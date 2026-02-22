@@ -1,8 +1,8 @@
 import React from 'react';
 import {ConversationStateManager} from '@/app/utils/conversation-state';
 import UserMessage from '@/components/user-message';
+import {CommandIntegration} from '@/custom-commands/command-integration';
 import {promptHistory} from '@/prompt-history';
-import {SkillIntegration} from '@/skills';
 import type {Message} from '@/types/core';
 import {MessageBuilder} from '@/utils/message-builder';
 import {assemblePrompt, processPromptTemplate} from '@/utils/prompt-processor';
@@ -18,6 +18,7 @@ import {displayError as displayErrorHelper} from './utils/message-helpers';
 export function useChatHandler({
 	client,
 	toolManager,
+	customCommandLoader,
 	messages,
 	setMessages,
 	currentProvider,
@@ -38,13 +39,11 @@ export function useChatHandler({
 	// Track when the current conversation started for elapsed time display
 	const conversationStartTimeRef = React.useRef<number>(Date.now());
 
-	// Memoize SkillIntegration to avoid recreating on every message
-	const skillIntegration = React.useMemo(() => {
-		if (!toolManager) return null;
-		const skillManager = toolManager.getSkillManager();
-		if (!skillManager) return null;
-		return new SkillIntegration(skillManager, toolManager);
-	}, [toolManager]);
+	// Memoize CommandIntegration to avoid recreating on every message
+	const commandIntegration = React.useMemo(() => {
+		if (!toolManager || !customCommandLoader) return null;
+		return new CommandIntegration(customCommandLoader, toolManager);
+	}, [toolManager, customCommandLoader]);
 
 	// State for streaming message content
 	const [streamingContent, setStreamingContent] = React.useState<string>('');
@@ -181,9 +180,9 @@ export function useChatHandler({
 			// Load and process system prompt
 			let systemPrompt = processPromptTemplate();
 
-			// Enhance with relevant Skills (progressive disclosure)
-			if (skillIntegration) {
-				systemPrompt = await skillIntegration.enhanceSystemPrompt(
+			// Enhance with relevant commands (progressive disclosure)
+			if (commandIntegration) {
+				systemPrompt = commandIntegration.enhanceSystemPrompt(
 					systemPrompt,
 					message,
 				);
