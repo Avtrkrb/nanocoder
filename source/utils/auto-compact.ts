@@ -157,7 +157,7 @@ export async function performAutoCompact(
 		if (config.notifyUser && onNotify) {
 			const reduction = Math.round(result.reductionPercentage);
 			onNotify(
-				`Context at ${Math.round(usagePercentage)}% capacity - auto-compacting...\nContext Compacted: ${result.originalTokenCount.toLocaleString()} tokens → ${result.compressedTokenCount.toLocaleString()} tokens (${reduction}% reduction)`,
+				`Context at ${Math.round(usagePercentage)}% capacity - auto-compacting...\n\nContext Compacted: ${result.originalTokenCount.toLocaleString()} tokens → ${result.compressedTokenCount.toLocaleString()} tokens (${reduction}% reduction)`,
 			);
 		}
 
