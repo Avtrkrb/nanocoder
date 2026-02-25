@@ -9,6 +9,18 @@ const RESOURCES_DIR = 'resources';
 const RELEVANCE_THRESHOLD = 5;
 const MAX_COMMANDS_IN_CONTEXT = 3;
 
+/**
+ * Validate that a directory entry doesn't contain path traversal patterns.
+ */
+function isSafeEntry(entry: string): boolean {
+	return (
+		entry !== '..' &&
+		entry !== '.' &&
+		!entry.includes('/') &&
+		!entry.includes('\\')
+	);
+}
+
 export class CustomCommandLoader {
 	private commands: Map<string, CustomCommand> = new Map();
 	private aliases: Map<string, string> = new Map(); // alias -> command name
@@ -82,13 +94,14 @@ export class CustomCommandLoader {
 		const entries = readdirSync(dir);
 
 		for (const entry of entries) {
+			if (!isSafeEntry(entry)) continue;
 			const fullPath = join(dir, entry); // nosemgrep
 			const stat = statSync(fullPath);
 
 			if (stat.isDirectory()) {
 				// Check if this is a directory-as-command pattern:
 				// directory contains <dirname>.md + optional resources/
-				const commandFile = join(fullPath, `${entry}.md`);
+				const commandFile = join(fullPath, `${entry}.md`); // nosemgrep
 				if (existsSync(commandFile)) {
 					this.loadCommand(commandFile, namespace, source, fullPath);
 				} else {
@@ -169,7 +182,7 @@ export class CustomCommandLoader {
 	 * Load resources from a command's resources/ subdirectory
 	 */
 	private loadResources(commandDir: string): CommandResource[] {
-		const resourcesDir = join(commandDir, RESOURCES_DIR);
+		const resourcesDir = join(commandDir, RESOURCES_DIR); // nosemgrep
 		if (!existsSync(resourcesDir)) {
 			return [];
 		}
@@ -178,7 +191,8 @@ export class CustomCommandLoader {
 		const resources: CommandResource[] = [];
 
 		for (const entry of entries) {
-			const resourcePath = join(resourcesDir, entry);
+			if (!isSafeEntry(entry)) continue;
+			const resourcePath = join(resourcesDir, entry); // nosemgrep
 			let st: {mode: number; isFile: () => boolean};
 			try {
 				st = statSync(resourcePath);
