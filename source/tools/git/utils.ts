@@ -83,6 +83,18 @@ export function isGitAvailable(): boolean {
 }
 
 /**
+ * Check if the current directory is inside a git repository (synchronous)
+ */
+export function isInsideGitRepo(): boolean {
+	try {
+		execSync('git rev-parse --is-inside-work-tree', {stdio: 'ignore'});
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Check if gh CLI is available on the system (synchronous)
  */
 export function isGhAvailable(): boolean {

@@ -18,15 +18,15 @@ import {gitPushTool} from './git-push';
 import {gitResetTool} from './git-reset';
 import {gitStashTool} from './git-stash';
 import {gitStatusTool} from './git-status';
-import {isGhAvailable, isGitAvailable} from './utils';
+import {isGhAvailable, isGitAvailable, isInsideGitRepo} from './utils';
 
 /**
  * Get all available git tools based on system capabilities.
  * Returns empty array if git is not installed.
  */
 export function getGitTools(): NanocoderToolExport[] {
-	// No git, no git tools
-	if (!isGitAvailable()) {
+	// No git or not in a git repo, no git tools
+	if (!isGitAvailable() || !isInsideGitRepo()) {
 		return [];
 	}
 
