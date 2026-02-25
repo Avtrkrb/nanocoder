@@ -6,7 +6,7 @@
 import React from 'react';
 import {UsageDisplay} from '@/components/usage/usage-display';
 import {getToolManager} from '@/message-handler';
-import {getModelContextLimit} from '@/models/index';
+import {getModelContextLimit, getSessionContextLimit} from '@/models/index';
 import {createTokenizer} from '@/tokenization/index';
 import type {Command} from '@/types/commands';
 import type {Message} from '@/types/core';
@@ -107,8 +107,9 @@ export const usageCommand: Command = {
 			total: baseBreakdown.total + toolDefinitions,
 		};
 
-		// Get context limit from models.dev
-		const contextLimit = await getModelContextLimit(model);
+		// Get context limit: session override takes priority
+		const sessionLimit = getSessionContextLimit();
+		const contextLimit = sessionLimit ?? (await getModelContextLimit(model));
 
 		return React.createElement(UsageDisplay, {
 			key: `usage-${Date.now()}`,

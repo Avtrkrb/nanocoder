@@ -306,13 +306,71 @@ async function findModelByName(modelName: string): Promise<ModelInfo | null> {
 }
 
 /**
+ * Singleton class for managing session-level context limit overrides.
+ * Allows users to manually set a context limit via /context-max command.
+ */
+class ContextLimitSessionManager {
+	private _contextLimit: number | null = null;
+
+	get(): number | null {
+		return this._contextLimit;
+	}
+
+	set(limit: number | null): void {
+		if (limit !== null && limit > 0) {
+			this._contextLimit = limit;
+		} else {
+			this._contextLimit = null;
+		}
+	}
+
+	reset(): void {
+		this._contextLimit = null;
+	}
+}
+
+// Singleton instance
+const contextLimitSession = new ContextLimitSessionManager();
+
+export function setSessionContextLimit(limit: number | null): void {
+	contextLimitSession.set(limit);
+}
+
+export function getSessionContextLimit(): number | null {
+	return contextLimitSession.get();
+}
+
+export function resetSessionContextLimit(): void {
+	contextLimitSession.reset();
+}
+
+/**
  * Get context limit for a model
- * Returns null if model not found and no fallback available
+ * Resolution order:
+ * 1. Session override (from /context-max command)
+ * 2. NANOCODER_CONTEXT_LIMIT env variable
+ * 3. models.dev lookup / hardcoded Ollama defaults
+ * 4. null (unknown)
  */
 export async function getModelContextLimit(
 	modelId: string,
 ): Promise<number | null> {
 	try {
+		// Check session override first (highest priority)
+		const sessionLimit = contextLimitSession.get();
+		if (sessionLimit !== null) {
+			return sessionLimit;
+		}
+
+		// Check environment variable fallback
+		const envLimit = process.env.NANOCODER_CONTEXT_LIMIT;
+		if (envLimit) {
+			const parsed = Number.parseInt(envLimit, 10);
+			if (!Number.isNaN(parsed) && parsed > 0) {
+				return parsed;
+			}
+		}
+
 		// Strip :cloud or -cloud suffix if present (Ollama cloud models)
 		const normalizedModelId =
 			modelId.endsWith(':cloud') || modelId.endsWith('-cloud')

@@ -1,7 +1,18 @@
 import test from 'ava';
-import {getModelContextLimit} from './models-dev-client.js';
+import {
+	getModelContextLimit,
+	getSessionContextLimit,
+	resetSessionContextLimit,
+	setSessionContextLimit,
+} from './models-dev-client.js';
 
 console.log(`\nmodels-dev-client.spec.ts`);
+
+// Reset session context limit before each test to avoid cross-test pollution
+test.beforeEach(() => {
+	resetSessionContextLimit();
+	delete process.env.NANOCODER_CONTEXT_LIMIT;
+});
 
 /**
  * Tests for models-dev-client.ts
@@ -243,5 +254,110 @@ test('getModelContextLimit - handles model names with mixed case', async t => {
 
 test('getModelContextLimit - handles models.dev API failure gracefully', async t => {
 	const limit = await getModelContextLimit('some-api-only-model-xyz');
+	t.is(limit, null);
+});
+
+// ============================================================================
+// Session Context Limit Override
+// ============================================================================
+
+test('getSessionContextLimit - starts as null', t => {
+	t.is(getSessionContextLimit(), null);
+});
+
+test('setSessionContextLimit - sets a positive value', t => {
+	setSessionContextLimit(8192);
+	t.is(getSessionContextLimit(), 8192);
+});
+
+test('setSessionContextLimit - sets a large value', t => {
+	setSessionContextLimit(128000);
+	t.is(getSessionContextLimit(), 128000);
+});
+
+test('setSessionContextLimit - null clears the override', t => {
+	setSessionContextLimit(8192);
+	setSessionContextLimit(null);
+	t.is(getSessionContextLimit(), null);
+});
+
+test('setSessionContextLimit - zero is treated as null', t => {
+	setSessionContextLimit(0);
+	t.is(getSessionContextLimit(), null);
+});
+
+test('setSessionContextLimit - negative value is treated as null', t => {
+	setSessionContextLimit(-100);
+	t.is(getSessionContextLimit(), null);
+});
+
+test('resetSessionContextLimit - clears the override', t => {
+	setSessionContextLimit(8192);
+	resetSessionContextLimit();
+	t.is(getSessionContextLimit(), null);
+});
+
+test('resetSessionContextLimit - is safe to call when already null', t => {
+	resetSessionContextLimit();
+	t.is(getSessionContextLimit(), null);
+});
+
+test('getModelContextLimit - session override takes priority over models.dev', async t => {
+	setSessionContextLimit(4096);
+	// llama3.1 normally resolves via models.dev, but session override wins
+	const limit = await getModelContextLimit('llama3.1');
+	t.is(limit, 4096);
+});
+
+test('getModelContextLimit - session override takes priority for unknown models', async t => {
+	setSessionContextLimit(16000);
+	const limit = await getModelContextLimit('unknown-model-12345');
+	t.is(limit, 16000);
+});
+
+test('getModelContextLimit - falls through to models.dev when no session override', async t => {
+	// No session override set, should use models.dev
+	const limit = await getModelContextLimit('llama3.1');
+	t.is(typeof limit, 'number');
+});
+
+// ============================================================================
+// NANOCODER_CONTEXT_LIMIT Environment Variable
+// ============================================================================
+
+test('getModelContextLimit - env variable used for unknown models', async t => {
+	process.env.NANOCODER_CONTEXT_LIMIT = '32000';
+	const limit = await getModelContextLimit('unknown-model-12345');
+	t.is(limit, 32000);
+});
+
+test('getModelContextLimit - session override takes priority over env variable', async t => {
+	process.env.NANOCODER_CONTEXT_LIMIT = '32000';
+	setSessionContextLimit(8192);
+	const limit = await getModelContextLimit('unknown-model-12345');
+	t.is(limit, 8192);
+});
+
+test('getModelContextLimit - invalid env variable is ignored', async t => {
+	process.env.NANOCODER_CONTEXT_LIMIT = 'not-a-number';
+	const limit = await getModelContextLimit('unknown-model-12345');
+	t.is(limit, null);
+});
+
+test('getModelContextLimit - zero env variable is ignored', async t => {
+	process.env.NANOCODER_CONTEXT_LIMIT = '0';
+	const limit = await getModelContextLimit('unknown-model-12345');
+	t.is(limit, null);
+});
+
+test('getModelContextLimit - negative env variable is ignored', async t => {
+	process.env.NANOCODER_CONTEXT_LIMIT = '-1000';
+	const limit = await getModelContextLimit('unknown-model-12345');
+	t.is(limit, null);
+});
+
+test('getModelContextLimit - empty env variable is ignored', async t => {
+	process.env.NANOCODER_CONTEXT_LIMIT = '';
+	const limit = await getModelContextLimit('unknown-model-12345');
 	t.is(limit, null);
 });

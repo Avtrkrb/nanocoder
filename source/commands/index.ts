@@ -1,6 +1,7 @@
 export * from '@/commands/checkpoint';
 export * from '@/commands/clear';
 export * from '@/commands/compact';
+export * from '@/commands/context-max';
 export * from '@/commands/custom-commands';
 export * from '@/commands/exit';
 export * from '@/commands/explorer';

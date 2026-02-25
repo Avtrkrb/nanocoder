@@ -414,6 +414,7 @@ Nanocoder looks for configuration in the following order (first found wins):
 Keep API keys out of version control using environment variables. Variables are loaded from shell environment (`.bashrc`, `.zshrc`) or `.env` file in your working directory.
 
 - `NANOCODER_CONFIG_DIR`: Override the global configuration directory.
+- `NANOCODER_CONTEXT_LIMIT`: Set a default context limit (in tokens) for models not found on models.dev. This is used as a fallback when the model's context window is unknown, enabling auto-compact and `/usage` to work correctly.
 - `NANOCODER_DATA_DIR`: Override the application data directory used for internal data like usage statistics.
 
 **Syntax:** `$VAR_NAME`, `${VAR_NAME}`, or `${VAR_NAME:-default}`
@@ -601,6 +602,7 @@ You can override this directory using `NANOCODER_DATA_DIR`.
 - `/custom-commands` - List all custom commands
 - `/checkpoint` - Save and restore conversation snapshots (see [Checkpointing](#checkpointing) section)
 - `/compact` - Compress message history to reduce context usage (see [Context Compression](docs/context-compression.md))
+- `/context-max` - Set maximum context length for the current session (useful for models not listed on models.dev)
 - `/exit` - Exit the application
 - `/export` - Export current session to markdown file
 - `/update` - Update Nanocoder to the latest version
