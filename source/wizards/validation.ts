@@ -1,4 +1,5 @@
 import {TIMEOUT_PROVIDER_CONNECTION_MS} from '@/constants';
+import {isLocalURL} from '@/utils/url-utils';
 import type {ProviderConfig, SdkProvider} from '../types/config';
 import type {McpServerConfig} from './templates/mcp-templates';
 
@@ -103,13 +104,8 @@ export async function testProviderConnection(
 	}
 
 	try {
-		const url = new URL(provider.baseUrl);
-
 		// Only test localhost connections (don't want to spam cloud APIs)
-		if (
-			!url.hostname.includes('localhost') &&
-			!url.hostname.includes('127.0.0.1')
-		) {
+		if (!isLocalURL(provider.baseUrl)) {
 			return {
 				providerName: provider.name,
 				connected: true, // Assume cloud APIs are reachable

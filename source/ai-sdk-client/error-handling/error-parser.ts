@@ -138,7 +138,10 @@ export function parseAPIError(error: unknown): string {
 	// Handle network errors
 	if (
 		errorMessage.includes('ECONNREFUSED') ||
-		errorMessage.includes('connect')
+		errorMessage.includes('ECONNRESET') ||
+		errorMessage.includes('ENOTFOUND') ||
+		errorMessage.includes('connect ETIMEDOUT') ||
+		errorMessage.includes('Failed to fetch')
 	) {
 		return 'Connection failed: Unable to reach the model server';
 	}
